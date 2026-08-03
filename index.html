@@ -843,7 +843,13 @@ async function addToPlaylist(playlistId, subliminalId){
 /* =========================================================================
    STATS
    ========================================================================= */
-function dayKey(d = new Date()){ return d.toISOString().slice(0,10); }
+function dayKey(d = new Date()){
+  // Local calendar day, not UTC — this app is mostly used at night, and
+  // toISOString() would push evening listening (e.g. 21h-23h59 in UTC-3)
+  // into "tomorrow", throwing off "tempo ouvido hoje" and the streak.
+  const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,"0"), day = String(d.getDate()).padStart(2,"0");
+  return `${y}-${m}-${day}`;
+}
 
 async function recordListening(subliminalId, ms){
   const key = dayKey();
@@ -967,6 +973,7 @@ async function renameSubliminal(id){
 }
 async function deleteSubliminal(id){
   await dbDelete("subliminals", id);
+  await dbDelete("subliminalStats", id);
   const orphanedItems = state.playlistItems.filter(i => i.subliminalId === id);
   for(const item of orphanedItems) await dbDelete("playlistItems", item.id);
   await refreshAll();
@@ -1006,6 +1013,12 @@ async function createCategory(returnIdCallback){
   await refreshAll();
   closeDialog();
   renderHome();
+  // If this was created from inside the import sheet's "+ Nova" chip, that
+  // sheet is still open underneath — refresh its category list and select
+  // the one just created, instead of leaving it unpickable until reopened.
+  if(document.getElementById("importOverlay").classList.contains("show")){
+    renderImportCategoryChips(id);
+  }
   if(typeof returnIdCallback === "function") returnIdCallback(id);
   return id;
 }
@@ -1040,13 +1053,17 @@ function startImportStep(){
   document.getElementById("importCoverPreview").innerHTML = ICONS.note;
   document.getElementById("importCounter").textContent = `Importar subliminal (${state.pendingIndex+1}/${state.pendingImports.length})`;
   document.getElementById("importName").value = file.name.replace(/\.[^/.]+$/, "");
+  state.importSelectedCategory = null;
+  renderImportCategoryChips();
+  document.getElementById("saveImportBtn").disabled = true;
+  document.getElementById("importOverlay").classList.add("show");
+}
+function renderImportCategoryChips(selectedId){
   const chipsWrap = document.getElementById("importCategoryChips");
   chipsWrap.innerHTML = state.categories.map(c =>
     `<button class="chip" data-cat="${c.id}" onclick="selectImportCategory(${c.id})">${escapeHtml(c.name)}</button>`
   ).join("") + `<button class="chip" onclick="openNewCategoryDialog()">+ Nova</button>`;
-  state.importSelectedCategory = null;
-  document.getElementById("saveImportBtn").disabled = true;
-  document.getElementById("importOverlay").classList.add("show");
+  if(selectedId != null) selectImportCategory(selectedId);
 }
 function selectImportCategory(id){
   state.importSelectedCategory = id;
@@ -1256,12 +1273,19 @@ function next(){
     state.queueIndex++;
   } else if(state.repeatMode === "all"){
     state.queueIndex = 0;
-  } else { return; }
+  } else {
+    // Last track, no repeat: nothing to advance to. The audio has actually
+    // stopped (or is about to), so reflect that in the UI instead of leaving
+    // the pause icon showing.
+    state.isPlaying = false;
+    updatePlayIcons();
+    return;
+  }
   loadCurrentTrack();
 }
 function prev(){
-  if(state.queue.length === 0) return;
-  if(state.queueIndex > 0) state.queueIndex--;
+  if(state.queue.length === 0 || state.queueIndex <= 0) return;
+  state.queueIndex--;
   loadCurrentTrack();
 }
 audioEl.addEventListener("ended", () => {
@@ -1426,26 +1450,60 @@ document.getElementById("restoreInput").addEventListener("change", async (e) => 
   const text = await file.text();
   const payload = JSON.parse(text);
 
-  for(const c of payload.categories||[]) await dbPut("categories", stripId(c));
-  for(const p of payload.playlists||[]) await dbPut("playlists", stripId(p));
-  for(const pi of payload.playlistItems||[]) await dbPut("playlistItems", stripId(pi));
+  await refreshAll();
+
+  // Every id in a backup was assigned by the exporting device's own
+  // autoIncrement counters. Restoring re-inserts rows with brand-new ids, so
+  // every foreign key below (categoryId, playlistId, subliminalId) has to be
+  // remapped to whatever id it actually lands on here — otherwise, e.g., a
+  // subliminal in a custom category silently loses its category link the
+  // moment it's restored onto a device that isn't perfectly empty.
+  const categoryIdMap = {};
+  const existingCategoryByName = {};
+  state.categories.forEach(c => { existingCategoryByName[c.name] = c.id; });
+  for(const c of payload.categories||[]){
+    if(existingCategoryByName[c.name] !== undefined){
+      // Reuse the local category instead of inserting a duplicate — this is
+      // what previously caused every restore to double up the default set.
+      categoryIdMap[c.id] = existingCategoryByName[c.name];
+    } else {
+      const newId = await dbPut("categories", stripId(c));
+      categoryIdMap[c.id] = newId;
+      existingCategoryByName[c.name] = newId;
+    }
+  }
+
+  const playlistIdMap = {};
+  for(const p of payload.playlists||[]){
+    playlistIdMap[p.id] = await dbPut("playlists", stripId(p));
+  }
+
   for(const d of payload.listeningDays||[]) await dbPut("listeningDays", d);
 
   const listenedMsByOldSubliminalId = {};
   for(const s of payload.subliminalStats||[]) listenedMsByOldSubliminalId[s.subliminalId] = s.totalListenedMs;
 
+  const subliminalIdMap = {};
   for(const s of payload.subliminals||[]){
     const oldId = s.id;
     const blob = await (await fetch(s.audioDataUrl)).blob();
     const clean = {...s}; delete clean.audioDataUrl; delete clean.id;
     clean.blob = blob;
+    if(categoryIdMap[clean.categoryId] !== undefined) clean.categoryId = categoryIdMap[clean.categoryId];
     const newId = await dbPut("subliminals", clean);
-    // Subliminals get a fresh autoIncrement id on restore, so stats keyed by
-    // the old id must be re-linked to whatever id they actually land on.
+    subliminalIdMap[oldId] = newId;
     if(listenedMsByOldSubliminalId[oldId] !== undefined){
       await dbPut("subliminalStats", {subliminalId: newId, totalListenedMs: listenedMsByOldSubliminalId[oldId]});
     }
   }
+
+  for(const pi of payload.playlistItems||[]){
+    const playlistId = playlistIdMap[pi.playlistId];
+    const subliminalId = subliminalIdMap[pi.subliminalId];
+    if(playlistId === undefined || subliminalId === undefined) continue;
+    await dbPut("playlistItems", {playlistId, subliminalId, position: pi.position});
+  }
+
   await refreshAll();
   rerenderCurrentView();
   alert("Biblioteca importada com sucesso.");
