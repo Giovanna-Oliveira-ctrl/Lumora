@@ -1,0 +1,1485 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#121016">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Lumora</title>
+<style>
+  /* ================= DESIGN TOKENS =================
+     Two fixed identities, as briefed: a nocturnal violet mode for night
+     rituals (sleep, meditation) and a warm blush mode for daytime use.
+     A violet→orchid gradient is the one signature motif, reused sparingly:
+     the category-card accent hairline, the active progress fill, and the
+     player's "breathing" aura — nowhere else, so it stays a signature
+     rather than decoration. */
+  :root[data-theme="dark"]{
+    --bg:#121016; --surface:#1e1a26; --surface2:#262032; --surface3:#312a44;
+    --primary:#8b5cf6; --primary-2:#d68fff; --primary-soft:rgba(139,92,246,.16);
+    --text:#cbaef0; --text-dim:rgba(203,174,240,.6); --text-faint:rgba(203,174,240,.38);
+    --border:rgba(203,174,240,.1); --danger:#f26d6d; --shadow:rgba(0,0,0,.4);
+  }
+  :root[data-theme="light"]{
+    --bg:#fff5f8; --surface:#ffffff; --surface2:#fdeaf1; --surface3:#f8d9e7;
+    --primary:#e85d9c; --primary-2:#ff97c9; --primary-soft:rgba(232,93,156,.14);
+    --text:#3a1e2b; --text-dim:rgba(58,30,43,.6); --text-faint:rgba(58,30,43,.36);
+    --border:rgba(58,30,43,.1); --danger:#c9436a; --shadow:rgba(58,30,43,.18);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased; overscroll-behavior:none;
+    transition:background-color .35s ease, color .35s ease;
+  }
+  h1,h2,h3,.display{
+    font-family:"Iowan Old Style","Palatino Linotype",Georgia,serif;
+    font-weight:600; letter-spacing:.2px; margin:0; color:var(--text);
+  }
+  .eyebrow{ text-transform:uppercase; font-size:11px; letter-spacing:1.6px; color:var(--text-dim); font-weight:700; }
+  button{ font-family:inherit; }
+  button:focus-visible, input:focus-visible, [tabindex]:focus-visible{
+    outline:2px solid var(--primary); outline-offset:2px;
+  }
+  #app{
+    max-width:480px; margin:0 auto; min-height:100vh; display:flex; flex-direction:column; position:relative;
+    background:radial-gradient(circle at 25% -8%, var(--primary-soft), transparent 42%) var(--bg);
+  }
+
+  /* ---------- top bar ---------- */
+  .topbar{ display:flex; align-items:center; justify-content:space-between; padding:24px 20px 6px; }
+  .topbar h1{ font-size:27px; }
+  .icon-btn{
+    background:none; border:none; color:var(--text); cursor:pointer; padding:9px; border-radius:12px;
+    display:flex; align-items:center; justify-content:center; transition:background .15s ease, transform .1s ease;
+  }
+  .icon-btn:hover{ background:var(--surface2); }
+  .icon-btn:active{ transform:scale(.92); }
+  .icon-btn svg{ width:22px; height:22px; }
+
+  /* ---------- views ---------- */
+  .view{ display:none; flex:1; padding:4px 20px 106px; animation:fadeIn .25s ease; }
+  .view.active{ display:block; }
+  @keyframes fadeIn{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);} }
+
+  /* ---------- category grid ---------- */
+  .cat-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:16px; }
+  .cat-card{
+    position:relative; background:var(--surface); border-radius:20px; padding:17px; aspect-ratio:1/1;
+    display:flex; flex-direction:column; justify-content:space-between; border:1px solid var(--border);
+    cursor:pointer; transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease; text-align:left; color:var(--text);
+    box-shadow:0 1px 2px var(--shadow);
+  }
+  .cat-card:active{ transform:scale(.96); box-shadow:0 1px 3px var(--shadow); }
+  .cat-icon{
+    width:46px; height:46px; border-radius:15px; background:var(--primary-soft); color:var(--primary);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .cat-icon svg{ width:23px; height:23px; }
+  .cat-card .name{ font-size:16px; font-weight:600; margin-top:11px; color:var(--text); line-height:1.25; }
+  .cat-card .count{ font-size:12px; color:var(--text-dim); margin-top:3px; }
+
+  /* ---------- lists ---------- */
+  .list-row{
+    display:flex; align-items:center; gap:12px; padding:11px 6px; border-bottom:1px solid var(--border);
+    cursor:pointer; border-radius:12px; transition:background .12s ease;
+  }
+  .list-row:hover{ background:var(--surface2); }
+  .list-row:last-child{ border-bottom:none; }
+  .cover{
+    width:50px; height:50px; border-radius:14px; background:var(--primary-soft); color:var(--primary);
+    display:flex; align-items:center; justify-content:center; flex-shrink:0; overflow:hidden;
+  }
+  .cover svg{ width:22px; height:22px; }
+  .cover img{ width:100%; height:100%; object-fit:cover; }
+  .row-info{ flex:1; min-width:0; }
+  .row-title{ font-size:15px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--text); }
+  .row-sub{ font-size:12px; color:var(--text-dim); margin-top:2px; }
+  .row-title.playing{ color:var(--primary); }
+
+  .empty-state{ display:flex; flex-direction:column; align-items:center; text-align:center; padding:56px 24px; color:var(--text-dim); }
+  .empty-state svg{ width:44px; height:44px; opacity:.45; margin-bottom:14px; color:var(--primary); }
+  .empty-state p{ margin:0 0 18px; line-height:1.5; }
+
+  /* ---------- search/sort bar ---------- */
+  .toolbar{ display:flex; gap:8px; margin:14px 0; }
+  .search-box{
+    flex:1; display:flex; align-items:center; gap:8px; background:var(--surface); border:1px solid var(--border);
+    border-radius:14px; padding:11px 14px;
+  }
+  .search-box input{ border:none; background:none; outline:none; color:var(--text); font-size:14px; flex:1; }
+  .search-box input::placeholder{ color:var(--text-faint); }
+  .search-box svg{ width:16px; height:16px; color:var(--text-dim); flex-shrink:0; }
+
+  /* ---------- buttons ---------- */
+  .btn{
+    background:var(--primary); color:#fff; border:none; border-radius:14px; padding:13px 18px; font-size:15px;
+    font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;
+    transition:transform .1s ease, opacity .15s ease;
+  }
+  .btn:active{ transform:scale(.98); }
+  .btn.secondary{ background:var(--surface); color:var(--text); border:1px solid var(--border); }
+  .btn.block{ width:100%; }
+  .btn.btn-sm{ padding:9px 14px; font-size:13px; border-radius:12px; gap:6px; }
+  .btn.btn-sm svg{ width:16px; height:16px; }
+  .btn:disabled{ opacity:.4; cursor:default; }
+  .chip{
+    background:var(--surface); border:1px solid var(--border); color:var(--text); border-radius:999px;
+    padding:9px 15px; font-size:13px; font-weight:500; cursor:pointer; display:inline-flex; align-items:center;
+    gap:6px; white-space:nowrap; transition:background .15s ease, color .15s ease, border-color .15s ease;
+  }
+  .chip:hover{ border-color:var(--primary); }
+  .chip.active{ background:var(--primary); color:#fff; border-color:transparent; }
+  .chip-row{ display:flex; gap:8px; overflow-x:auto; padding:2px 2px 8px; scrollbar-width:none; }
+  .chip-row::-webkit-scrollbar{ display:none; }
+
+  /* ---------- FAB ---------- */
+  .fab{
+    position:fixed; right:calc(50% - 240px + 20px); bottom:154px; background:var(--primary); color:#fff; border:none;
+    border-radius:999px; padding:15px 22px; font-weight:600; font-size:14px; display:flex; align-items:center; gap:8px;
+    box-shadow:0 10px 28px var(--shadow); cursor:pointer; z-index:30; transition:transform .12s ease;
+    max-width:calc(100vw - 40px); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .fab:active{ transform:scale(.95); }
+  @media (max-width:480px){ .fab{ right:20px; } }
+  .fab svg{ width:18px; height:18px; flex-shrink:0; }
+
+  /* ---------- bottom nav + mini player ---------- */
+  .bottom-wrap{
+    position:fixed; left:0; right:0; bottom:0; max-width:480px; margin:0 auto; z-index:20;
+    box-shadow:0 -8px 24px var(--shadow);
+  }
+  .mini-player{
+    background:var(--surface2); border-top:1px solid var(--border); padding:10px 14px; display:none;
+    align-items:center; gap:10px; cursor:pointer;
+  }
+  .mini-player.show{ display:flex; }
+  .mini-progress{ height:2px; background:var(--border); position:relative; margin:-10px -14px 8px; }
+  .mini-progress-fill{ height:100%; background:linear-gradient(90deg, var(--primary), var(--primary-2)); width:0%; }
+  .mini-title{ flex:1; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--text); }
+  .bottomnav{ display:flex; background:var(--surface); border-top:1px solid var(--border); padding:8px 4px calc(8px + env(safe-area-inset-bottom)); }
+  .nav-item{
+    flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; background:none; border:none;
+    color:var(--text-dim); font-size:10.5px; padding:5px 2px; cursor:pointer; font-weight:600; border-radius:10px;
+    transition:color .15s ease;
+  }
+  .nav-item svg{ width:21px; height:21px; }
+  .nav-item.active{ color:var(--primary); }
+
+  /* ---------- player screen ---------- */
+  #playerView{ display:none; position:fixed; inset:0; background:var(--bg); z-index:50; flex-direction:column; max-width:480px; margin:0 auto; }
+  #playerView.show{ display:flex; }
+  .player-top{ display:flex; justify-content:space-between; align-items:center; padding:20px; }
+  .player-art-wrap{ flex:1; display:flex; align-items:center; justify-content:center; }
+  .aura{ position:relative; width:224px; height:224px; display:flex; align-items:center; justify-content:center; }
+  .aura::before, .aura::after{
+    content:""; position:absolute; inset:0; border-radius:50%;
+    background:radial-gradient(circle, var(--primary-soft), transparent 70%);
+  }
+  .aura::before{ animation:breathe 4.5s ease-in-out infinite; }
+  .aura::after{ inset:18px; animation:breathe 4.5s ease-in-out infinite .3s; opacity:.7; }
+  @media (prefers-reduced-motion:reduce){ .aura::before, .aura::after{ animation:none; } }
+  @keyframes breathe{ 0%,100%{ transform:scale(.92); opacity:.65; } 50%{ transform:scale(1.08); opacity:1; } }
+  .aura-core{
+    position:relative; width:150px; height:150px; border-radius:50%; background:var(--surface);
+    border:1px solid var(--border); display:flex; align-items:center; justify-content:center;
+    box-shadow:0 8px 30px var(--shadow);
+  }
+  .aura-core svg{ width:56px; height:56px; color:var(--primary); }
+  .player-info{ text-align:center; padding:0 24px 8px; }
+  .player-info .title{ font-size:21px; margin-bottom:5px; }
+  .player-info .cat{ font-size:13px; color:var(--text-dim); }
+  .seek-wrap{ padding:20px 24px 0; }
+  input[type=range]{
+    width:100%; height:4px; border-radius:999px; background:var(--border); accent-color:var(--primary);
+    -webkit-appearance:none; appearance:none; cursor:pointer;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:15px; height:15px; border-radius:50%; background:var(--primary);
+    box-shadow:0 2px 8px var(--shadow); margin-top:-5.5px; border:2px solid var(--bg);
+  }
+  input[type=range]::-moz-range-thumb{
+    width:15px; height:15px; border-radius:50%; background:var(--primary); border:2px solid var(--bg);
+    box-shadow:0 2px 8px var(--shadow);
+  }
+  .time-row{ display:flex; justify-content:space-between; font-size:11px; color:var(--text-dim); margin-top:6px; }
+  .transport{ display:flex; align-items:center; justify-content:space-evenly; padding:20px 12px; }
+  .transport button{
+    background:none; border:none; color:var(--text); cursor:pointer; padding:8px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center; transition:background .15s ease, transform .1s ease;
+  }
+  .transport button:hover{ background:var(--surface2); }
+  .transport button:active{ transform:scale(.9); }
+  .transport svg{ width:25px; height:25px; }
+  .play-btn{
+    width:64px; height:64px; border-radius:50%; background:var(--primary); color:#fff;
+    display:flex; align-items:center; justify-content:center; box-shadow:0 8px 22px var(--shadow);
+  }
+  .play-btn:hover{ background:var(--primary) !important; }
+  .play-btn svg{ width:28px; height:28px; }
+  .toggle-active{ color:var(--primary) !important; }
+  .player-extra{ display:flex; justify-content:center; gap:10px; padding:8px 20px 32px; flex-wrap:wrap; }
+
+  /* ---------- modals / sheets ---------- */
+  .overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,.55); display:none; align-items:flex-end; justify-content:center;
+    z-index:60; backdrop-filter:blur(2px);
+  }
+  .overlay.show{ display:flex; }
+  .sheet{
+    background:var(--bg); width:100%; max-width:480px; border-radius:26px 26px 0 0; padding:24px 20px 32px;
+    max-height:85vh; overflow-y:auto; animation:slideUp .28s cubic-bezier(.2,.8,.2,1);
+    box-shadow:0 -12px 40px var(--shadow); border-top:1px solid var(--border);
+  }
+  @keyframes slideUp{ from{ transform:translateY(34px); opacity:0;} to{ transform:translateY(0); opacity:1;} }
+  .sheet h3{ font-size:18px; margin-bottom:16px; }
+  .field{ margin-bottom:16px; }
+  .field label{ display:block; font-size:12px; color:var(--text-dim); margin-bottom:6px; font-weight:600; }
+  .field input[type=text]{
+    width:100%; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:13px 14px;
+    color:var(--text); font-size:15px; outline:none; transition:border-color .15s ease;
+  }
+  .field input[type=text]:focus{ border-color:var(--primary); }
+  .sheet-actions{ display:flex; gap:10px; margin-top:10px; }
+  .dialog-center{ align-items:center; }
+  .dialog-box{
+    background:var(--surface); border-radius:22px; padding:24px; width:88%; max-width:340px;
+    box-shadow:0 20px 50px var(--shadow); border:1px solid var(--border);
+  }
+
+  /* stats */
+  .stat-card{
+    background:var(--surface); border:1px solid var(--border); border-radius:18px; padding:17px 18px;
+    margin-bottom:12px; box-shadow:0 1px 2px var(--shadow);
+  }
+  .stat-card .label{ font-size:11.5px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.8px; font-weight:700; }
+  .stat-card .value{ font-size:25px; margin-top:5px; font-family:"Iowan Old Style",Georgia,serif; color:var(--text); }
+
+  .settings-section{ margin-bottom:28px; }
+  .settings-section h3{ font-size:15px; margin-bottom:11px; }
+  .theme-row, .lang-row{ display:flex; gap:10px; }
+  .note{ font-size:13px; color:var(--text-dim); line-height:1.55; margin-top:8px; }
+  .back-row{ display:flex; align-items:center; gap:8px; padding:20px 0 6px; }
+  .back-row h1{ font-size:20px; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <input type="file" id="fileInput" accept="audio/*,video/*" multiple hidden>
+  <input type="file" id="coverInput" accept="image/*" hidden>
+  <input type="file" id="restoreInput" accept="application/json" hidden>
+
+  <!-- ============ HOME ============ -->
+  <div class="view active" id="view-home">
+    <div class="topbar">
+      <div>
+        <div class="eyebrow">Lumora</div>
+        <h1>Categorias</h1>
+      </div>
+      <button class="icon-btn" onclick="showView('settings')">${ICONS.settings}</button>
+    </div>
+    <div class="cat-grid" id="catGrid"></div>
+  </div>
+
+  <!-- ============ CATEGORY DETAIL ============ -->
+  <div class="view" id="view-category">
+    <div class="back-row">
+      <button class="icon-btn" onclick="showView('home')">${ICONS.back}</button>
+      <h1 id="catDetailTitle"></h1>
+    </div>
+    <div id="catDetailList"></div>
+  </div>
+
+  <!-- ============ LIBRARY ============ -->
+  <div class="view" id="view-library">
+    <div class="topbar"><h1>Biblioteca</h1></div>
+    <div class="toolbar">
+      <div class="search-box">${ICONS.search}<input id="librarySearch" placeholder="Pesquisar" oninput="renderLibrary()"></div>
+      <button class="icon-btn" style="background:var(--surface);border:1px solid var(--border);border-radius:14px;" onclick="toggleSortMenu()">${ICONS.sort}</button>
+    </div>
+    <div class="chip-row" id="sortMenu" style="display:none;">
+      <button class="chip" data-sort="date" onclick="setSort('date')">Data adicionada</button>
+      <button class="chip" data-sort="name" onclick="setSort('name')">Nome (A-Z)</button>
+      <button class="chip" data-sort="played" onclick="setSort('played')">Mais ouvidos</button>
+    </div>
+    <div id="libraryList"></div>
+  </div>
+
+  <!-- ============ FAVORITES ============ -->
+  <div class="view" id="view-favorites">
+    <div class="topbar"><h1>Favoritos</h1></div>
+    <div id="favList"></div>
+  </div>
+
+  <!-- ============ PLAYLISTS ============ -->
+  <div class="view" id="view-playlists">
+    <div class="topbar"><h1>Playlists</h1></div>
+    <div id="playlistList"></div>
+  </div>
+
+  <!-- ============ PLAYLIST DETAIL ============ -->
+  <div class="view" id="view-playlistDetail">
+    <div class="back-row">
+      <button class="icon-btn" onclick="showView('playlists')">${ICONS.back}</button>
+      <h1 id="playlistDetailTitle"></h1>
+    </div>
+    <div id="playlistDetailList"></div>
+  </div>
+
+  <!-- ============ STATS ============ -->
+  <div class="view" id="view-stats">
+    <div class="topbar"><h1>Estatísticas</h1></div>
+    <div class="stat-card"><div class="label">Tempo ouvido hoje</div><div class="value" id="statToday">0min</div></div>
+    <div class="stat-card"><div class="label">Tempo total</div><div class="value" id="statTotal">0min</div></div>
+    <div class="stat-card"><div class="label">Sequência de dias</div><div class="value" id="statStreak">0 dias</div></div>
+    <div class="stat-card"><div class="label">Mais ouvido</div><div class="value" id="statMostPlayed">—</div></div>
+  </div>
+
+  <!-- ============ SETTINGS ============ -->
+  <div class="view" id="view-settings">
+    <div class="back-row">
+      <button class="icon-btn" onclick="showView('home')">${ICONS.back}</button>
+      <h1>Configurações</h1>
+    </div>
+
+    <div class="settings-section">
+      <h3>Tema</h3>
+      <div class="theme-row">
+        <button class="chip" id="themeDarkBtn" onclick="setTheme('dark')">Escuro (roxo)</button>
+        <button class="chip" id="themeLightBtn" onclick="setTheme('light')">Claro (rosa)</button>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h3>Backup do aplicativo</h3>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="btn btn-sm" onclick="exportBackup(event)">${ICONS.backup} Fazer backup</button>
+        <button class="btn secondary btn-sm" onclick="document.getElementById('restoreInput').click()">Restaurar backup</button>
+      </div>
+      <p class="note" id="lastBackupNote"></p>
+    </div>
+
+    <div class="settings-section">
+      <h3>Categorias personalizadas</h3>
+      <button class="btn secondary block" onclick="openNewCategoryDialog()">+ Nova categoria</button>
+    </div>
+
+    <p class="note">O backup salva tudo: categorias, subliminares (áudio incluso), playlists, favoritos e estatísticas, em um único arquivo .json que você escolhe onde guardar (Google Drive, e-mail, pendrive, outro celular...). Restaurar em outro aparelho recupera o app exatamente como estava aqui.</p>
+    <p class="note">Você pode importar tanto áudios (mp3, wav, m4a, flac, aac) quanto vídeos (mp4, mov, webm...). Ao importar um vídeo, o app extrai a trilha de áudio automaticamente (usando a Web Audio API do próprio navegador) e guarda só o som, em formato .wav — a imagem é descartada e não ocupa espaço. Isso acontece inteiramente no seu aparelho, sem enviar nada para nenhum servidor.</p>
+    <p class="note">Todos os seus áudios ficam armazenados apenas neste navegador, no seu aparelho (IndexedDB). Nenhuma conta, servidor ou conexão com a internet é necessária depois de aberto uma vez.</p>
+    <p class="note">Cada vez que algo é salvo (novo subliminal, favorito, playlist, estatística), o app espera a confirmação de que os dados já foram gravados fisicamente no armazenamento do aparelho antes de continuar — assim, uma queda de energia ou o celular travando não apaga o que já tinha sido salvo.</p>
+    <p class="note" style="text-align:center; margin-top:22px; opacity:.6;">Lumora</p>
+  </div>
+
+  <!-- ============ BOTTOM: mini player + nav ============ -->
+  <div class="bottom-wrap">
+    <div class="mini-player" id="miniPlayer" onclick="openPlayer()">
+      <div class="mini-progress"><div class="mini-progress-fill" id="miniProgressFill"></div></div>
+      <div class="cover" id="miniCover">${ICONS.note}</div>
+      <div class="mini-title" id="miniTitle"></div>
+      <button class="icon-btn" onclick="event.stopPropagation();togglePlay()" id="miniPlayBtn">${ICONS.play}</button>
+      <button class="icon-btn" onclick="event.stopPropagation();next()">${ICONS.next}</button>
+    </div>
+    <div class="bottomnav">
+      <button class="nav-item active" data-nav="home" onclick="showView('home')">${ICONS.home}<span>Início</span></button>
+      <button class="nav-item" data-nav="library" onclick="showView('library')">${ICONS.library}<span>Biblioteca</span></button>
+      <button class="nav-item" data-nav="favorites" onclick="showView('favorites')">${ICONS.heart}<span>Favoritos</span></button>
+      <button class="nav-item" data-nav="playlists" onclick="showView('playlists')">${ICONS.playlist}<span>Playlists</span></button>
+      <button class="nav-item" data-nav="stats" onclick="showView('stats')">${ICONS.stats}<span>Stats</span></button>
+    </div>
+  </div>
+
+  <!-- FAB -->
+  <button class="fab" id="fabAdd" onclick="document.getElementById('fileInput').click()">${ICONS.add} Adicionar Subliminal</button>
+
+  <!-- ============ FULL PLAYER ============ -->
+  <div id="playerView">
+    <div class="player-top">
+      <button class="icon-btn" onclick="closePlayer()">${ICONS.down}</button>
+      <div class="eyebrow">Reproduzindo</div>
+      <div style="width:38px;"></div>
+    </div>
+    <div class="player-art-wrap">
+      <div class="aura"><div class="aura-core">${ICONS.wave}</div></div>
+    </div>
+    <div class="player-info">
+      <div class="title" id="playerTitle">—</div>
+      <div class="cat" id="playerCat"></div>
+    </div>
+    <div class="seek-wrap">
+      <input type="range" id="seekSlider" min="0" max="1000" value="0">
+      <div class="time-row"><span id="timeCurrent">0:00</span><span id="timeTotal">0:00</span></div>
+    </div>
+    <div class="transport">
+      <button id="shuffleBtn" onclick="toggleShuffle()">${ICONS.shuffle}</button>
+      <button onclick="prev()">${ICONS.prev}</button>
+      <button class="play-btn" id="playBtnBig" onclick="togglePlay()">${ICONS.play}</button>
+      <button onclick="next()">${ICONS.next}</button>
+      <button id="repeatBtn" onclick="cycleRepeat()">${ICONS.repeat}</button>
+    </div>
+    <div class="player-extra">
+      <button class="chip" id="speedChip" onclick="cycleSpeed()">1x</button>
+      <button class="chip" id="sleepChip" onclick="openSleepMenu()">Temporizador</button>
+      <button class="chip" id="favChip" onclick="toggleFavoriteCurrent()">${ICONS.heartOutline} Favorito</button>
+    </div>
+  </div>
+
+  <!-- ============ IMPORT SHEET ============ -->
+  <div class="overlay" id="importOverlay">
+    <div class="sheet">
+      <h3 id="importCounter">Importar subliminal</h3>
+      <p class="note" style="margin-top:-8px;margin-bottom:14px;">Você pode escolher um áudio (mp3, wav, m4a, flac, aac) ou um vídeo (mp4, mov, webm...) — se for vídeo, o app extrai e salva só o áudio automaticamente, descartando a imagem.</p>
+      <div class="field">
+        <label>Nome do subliminal</label>
+        <input type="text" id="importName">
+      </div>
+      <div class="field">
+        <label>Escolha a categoria</label>
+        <div class="chip-row" id="importCategoryChips"></div>
+      </div>
+      <div class="field">
+        <label>Capa (opcional)</label>
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div class="cover" id="importCoverPreview">${ICONS.note}</div>
+          <button class="btn secondary" onclick="document.getElementById('coverInput').click()">Escolher capa</button>
+        </div>
+      </div>
+      <div class="sheet-actions">
+        <button class="btn secondary" onclick="skipImport()">Pular</button>
+        <button class="btn block" id="saveImportBtn" onclick="saveCurrentImport()">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ GENERIC DIALOG (new category / playlist / move / rename) ============ -->
+  <div class="overlay dialog-center" id="dialogOverlay">
+    <div class="dialog-box" id="dialogBox"></div>
+  </div>
+
+  <audio id="audioEl"></audio>
+</div>
+
+<script>
+/* =========================================================================
+   ICONS — inline SVG, monochrome via currentColor, no external requests
+   ========================================================================= */
+const ICONS = {
+  settings:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`,
+  backup:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 19h16"/></svg>`,
+  back:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>`,
+  down:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>`,
+  search:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>`,
+  sort:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M6 12h12M10 18h4"/></svg>`,
+  add:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>`,
+  home:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>`,
+  library:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="4" height="16" rx="1"/><rect x="10" y="7" width="4" height="13" rx="1"/><rect x="17" y="10" width="4" height="10" rx="1"/></svg>`,
+  heart:`<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7-4.6-9.3-9C1 8.4 2.4 5 6 5c2 0 3.4 1.1 4 2.2C10.6 6.1 12 5 14 5c3.6 0 5 3.4 3.3 7C19 16.4 12 21 12 21z"/></svg>`,
+  heartOutline:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;"><path d="M12 21s-7-4.6-9.3-9C1 8.4 2.4 5 6 5c2 0 3.4 1.1 4 2.2C10.6 6.1 12 5 14 5c3.6 0 5 3.4 3.3 7C19 16.4 12 21 12 21z"/></svg>`,
+  playlist:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h13M3 12h13M3 18h7"/><circle cx="19" cy="16" r="2.4"/><path d="M21.4 16V6l-4 1.4"/></svg>`,
+  stats:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M12 20V4M20 20v-7"/></svg>`,
+  note:`<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>`,
+  play:`<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`,
+  pause:`<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>`,
+  next:`<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5v14l8-7z"/><rect x="16" y="5" width="2.5" height="14"/></svg>`,
+  prev:`<svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 5v14l-8-7z"/><rect x="5.5" y="5" width="2.5" height="14"/></svg>`,
+  shuffle:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h4l9 12h5M17 6h4v4M17 18h4v-4M3 18h4l4-5.5"/></svg>`,
+  repeat:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>`,
+  wave:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 12h2l2-7 3 14 3-11 3 8 2-4h3"/></svg>`,
+  more:`<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="6" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="18" r="1.6"/></svg>`,
+  category:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>`
+};
+
+/* Category icon set — one distinctive glyph per category, all sharing the same stroke style */
+const CATEGORY_ICON_SVGS = {
+  sleep:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z"/></svg>`,
+  meditation:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="6" r="2"/><path d="M4 20c1-4 4-6 8-6s7 2 8 6M6 14c1-2 2.5-3 3-5M18 14c-1-2-2.5-3-3-5"/></svg>`,
+  self_esteem:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M8 13s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/></svg>`,
+  ug:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2l3 7 7 1-5.5 5 1.5 7-6-3.5L6 22l1.5-7L2 10l7-1z"/></svg>`,
+  magic:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20L18 6M14 4l1 2 2 1-2 1-1 2-1-2-2-1 2-1zM4 15l.7 1.4L6 17l-1.3.6L4 19l-.7-1.4L2 17l1.3-.6z"/></svg>`,
+  appearance:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="9" r="4"/><path d="M4 20c1.5-3.5 4.5-5 8-5s6.5 1.5 8 5"/></svg>`,
+  intelligence:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 18h6M10 21h4M12 3a5 5 0 0 0-3 9c.4.4.6.9.6 1.4V15h4.8v-1.6c0-.5.2-1 .6-1.4a5 5 0 0 0-3-9z"/></svg>`,
+  studies:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 8l10-4 10 4-10 4-10-4z"/><path d="M6 10v6c2 1.5 10 1.5 12 0v-6"/></svg>`,
+  prosperity:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M15 9.5c0-1.4-1.3-2-3-2s-3 .8-3 2 1.3 1.7 3 2 3 .8 3 2-1.3 2-3 2-3-.7-3-2"/></svg>`,
+  health:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 21s-7-4.6-9.3-9C1 8.4 2.4 5 6 5c2 0 3.4 1.1 4 2.2C10.6 6.1 12 5 14 5c3.6 0 5 3.4 3.3 7C19 16.4 12 21 12 21z"/></svg>`,
+  energy:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M13 2L4 14h6l-1 8 9-12h-6z"/></svg>`,
+  love:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20s-7.5-4.9-9.7-9.4C.6 7.2 2.3 4 6 4c2.2 0 3.6 1.2 6 4 2.4-2.8 3.8-4 6-4 3.7 0 5.4 3.2 3.7 6.6C19.5 15.1 12 20 12 20z"/></svg>`,
+  spirituality:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2v20M4 8c4 2 12 2 16 0M4 16c4-2 12-2 16 0"/></svg>`,
+  body:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="4.5" r="2"/><path d="M7 21l2-8-3-2 2-4 4 1 4-1 2 4-3 2 2 8"/></svg>`,
+  beauty:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3c2 3 6 3.5 6 8a6 6 0 1 1-12 0c0-4.5 4-5 6-8z"/></svg>`,
+  personality:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.5-6 8-6s8 2 8 6"/></svg>`,
+  custom:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l2.6 5.6 6.1.6-4.6 4 1.4 6-5.5-3.3L6.5 19.2l1.4-6-4.6-4 6.1-.6z"/></svg>`
+};
+function categoryIcon(key){ return CATEGORY_ICON_SVGS[key] || ICONS.category; }
+
+/* The static HTML skeleton above uses ${ICONS.xxx} placeholders for readability,
+   but that markup is plain HTML (not a JS template literal), so the browser
+   never evaluates them on its own. Resolve them into real inline SVG here,
+   before anything below grabs a reference to a DOM node. */
+(function resolveStaticIconPlaceholders(){
+  document.body.innerHTML = document.body.innerHTML.replace(/\$\{ICONS\.(\w+)\}/g, (match, key) => ICONS[key] || "");
+})();
+
+const DEFAULT_CATEGORIES = [
+  {name:"Sono", iconKey:"sleep"}, {name:"Meditação", iconKey:"meditation"}, {name:"Autoestima", iconKey:"self_esteem"},
+  {name:"UG", iconKey:"ug"}, {name:"Magia", iconKey:"magic"}, {name:"Aparência", iconKey:"appearance"},
+  {name:"Inteligência", iconKey:"intelligence"}, {name:"Estudos", iconKey:"studies"}, {name:"Prosperidade", iconKey:"prosperity"},
+  {name:"Saúde", iconKey:"health"}, {name:"Energia", iconKey:"energy"}, {name:"Amor", iconKey:"love"},
+  {name:"Espiritualidade", iconKey:"spirituality"}, {name:"Corpo", iconKey:"body"}, {name:"Beleza", iconKey:"beauty"},
+  {name:"Personalidade", iconKey:"personality"}, {name:"Personalizadas", iconKey:"custom"}
+];
+
+/* =========================================================================
+   INDEXEDDB LAYER — everything lives on-device, no network calls ever
+   ========================================================================= */
+let db;
+function openDB(){
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open("subliminal_player", 2);
+    req.onupgradeneeded = (e) => {
+      const d = e.target.result;
+      const upgradeTx = e.target.transaction;
+      if(!d.objectStoreNames.contains("categories")){
+        const s = d.createObjectStore("categories", {keyPath:"id", autoIncrement:true});
+        s.createIndex("sortOrder", "sortOrder");
+      }
+      if(!d.objectStoreNames.contains("subliminals")){
+        const s = d.createObjectStore("subliminals", {keyPath:"id", autoIncrement:true});
+        s.createIndex("categoryId", "categoryId");
+        s.createIndex("favorite", "favorite");
+      }
+      if(!d.objectStoreNames.contains("playlists")){
+        d.createObjectStore("playlists", {keyPath:"id", autoIncrement:true});
+      }
+      if(!d.objectStoreNames.contains("playlistItems")){
+        const s = d.createObjectStore("playlistItems", {keyPath:"id", autoIncrement:true});
+        s.createIndex("playlistId", "playlistId");
+      }
+      if(!d.objectStoreNames.contains("listeningDays")){
+        d.createObjectStore("listeningDays", {keyPath:"dayKey"});
+      }
+      if(!d.objectStoreNames.contains("subliminalStats")){
+        // Per-item listening totals used to live on the "subliminals" record
+        // itself, which meant rewriting the whole record — audio blob
+        // included — on every tick of playback. Keeping it in its own tiny
+        // store means the second-by-second progress writes never touch the
+        // audio data again.
+        const statsStore = d.createObjectStore("subliminalStats", {keyPath:"subliminalId"});
+        if(e.oldVersion < 2 && d.objectStoreNames.contains("subliminals")){
+          upgradeTx.objectStore("subliminals").openCursor().onsuccess = (ev) => {
+            const cursor = ev.target.result;
+            if(!cursor) return;
+            const sub = cursor.value;
+            if(sub.totalListenedMs){
+              statsStore.put({subliminalId: sub.id, totalListenedMs: sub.totalListenedMs});
+            }
+            cursor.continue();
+          };
+        }
+      }
+    };
+    req.onsuccess = (e) => { db = e.target.result; resolve(db); };
+    req.onerror = (e) => reject(e);
+  });
+}
+function tx(storeNames, mode="readonly"){
+  // "strict" durability makes the browser flush writes to disk before the
+  // transaction resolves, so anything already saved survives a power loss
+  // or crash — at a small speed cost, only applied to writes. Older engines
+  // that don't yet support the options argument fall back safely.
+  if(mode === "readwrite"){
+    try{ return db.transaction(storeNames, mode, {durability:"strict"}); }
+    catch(e){ return db.transaction(storeNames, mode); }
+  }
+  return db.transaction(storeNames, mode);
+}
+function reqToPromise(req){ return new Promise((res, rej) => { req.onsuccess = () => res(req.result); req.onerror = () => rej(req.error); }); }
+
+async function dbGetAll(store){ return reqToPromise(tx(store).objectStore(store).getAll()); }
+async function dbGet(store, id){ return reqToPromise(tx(store).objectStore(store).get(id)); }
+async function dbPut(store, value){ return reqToPromise(tx(store, "readwrite").objectStore(store).put(value)); }
+async function dbDelete(store, id){ return reqToPromise(tx(store, "readwrite").objectStore(store).delete(id)); }
+async function dbGetByIndex(store, index, value){ return reqToPromise(tx(store).objectStore(store).index(index).getAll(value)); }
+
+async function seedDefaultCategories(){
+  const existing = await dbGetAll("categories");
+  if(existing.length === 0){
+    let order = 0;
+    for(const c of DEFAULT_CATEGORIES){
+      await dbPut("categories", {name:c.name, iconKey:c.iconKey, isCustom:false, sortOrder:order++});
+    }
+  }
+}
+
+/* =========================================================================
+   STATE
+   ========================================================================= */
+let state = {
+  categories: [],
+  subliminals: [],
+  playlists: [],
+  playlistItems: [],
+  queue: [],
+  queueIndex: -1,
+  isPlaying: false,
+  speed: 1,
+  repeatMode: "off", // off | one | all
+  shuffle: false,
+  sleepTimeout: null,
+  librarySort: "date",
+  currentCategoryId: null,
+  currentPlaylistId: null,
+  pendingImports: [],
+  pendingIndex: 0,
+  pendingCoverBlob: null,
+  listenTicker: null,
+  currentAudioUrl: null,
+  currentCoverPreviewUrl: null
+};
+
+const audioEl = document.getElementById("audioEl");
+
+/* =========================================================================
+   BOOT
+   ========================================================================= */
+async function boot(){
+  await openDB();
+  await seedDefaultCategories();
+  await refreshAll();
+  applyTheme(localStorage.getItem("theme") || "dark");
+  wireEvents();
+  renderHome();
+  requestPersistentStorage();
+}
+
+/* Asks the browser not to evict this origin's IndexedDB under storage
+   pressure. Best-effort: some browsers grant it silently based on
+   engagement heuristics, some never grant it for a given install method —
+   either way this can only help, and failure here must never block boot. */
+async function requestPersistentStorage(){
+  if(!(navigator.storage && navigator.storage.persist)) return;
+  try{
+    const already = await navigator.storage.persisted();
+    if(!already) await navigator.storage.persist();
+  } catch(e){ console.warn("Não foi possível solicitar armazenamento persistente:", e); }
+}
+
+async function refreshAll(){
+  state.categories = (await dbGetAll("categories")).sort((a,b)=>a.sortOrder-b.sortOrder);
+  state.subliminals = await dbGetAll("subliminals");
+  state.playlists = await dbGetAll("playlists");
+  state.playlistItems = await dbGetAll("playlistItems");
+}
+
+/* =========================================================================
+   NAVIGATION
+   ========================================================================= */
+function showView(name){
+  document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+  document.getElementById("view-"+name).classList.add("active");
+  document.querySelectorAll(".nav-item").forEach(n => n.classList.toggle("active", n.dataset.nav === name));
+  document.getElementById("fabAdd").style.display = (name === "home") ? "flex" : "flex";
+  if(name === "home") renderHome();
+  if(name === "library") renderLibrary();
+  if(name === "favorites") renderFavorites();
+  if(name === "playlists") renderPlaylists();
+  if(name === "stats") renderStats();
+  if(name === "settings") updateLastBackupNote();
+}
+
+/* =========================================================================
+   HOME / CATEGORIES
+   ========================================================================= */
+function renderHome(){
+  const grid = document.getElementById("catGrid");
+  grid.innerHTML = "";
+  state.categories.forEach(cat => {
+    const count = state.subliminals.filter(s => s.categoryId === cat.id).length;
+    const card = document.createElement("button");
+    card.className = "cat-card";
+    card.onclick = () => openCategory(cat.id);
+    card.innerHTML = `
+      <div class="cat-icon">${categoryIcon(cat.iconKey)}</div>
+      <div>
+        <div class="name">${escapeHtml(cat.name)}</div>
+        <div class="count">${count} áudio${count===1?"":"s"}</div>
+      </div>`;
+    grid.appendChild(card);
+  });
+}
+
+function openCategory(id){
+  state.currentCategoryId = id;
+  const cat = state.categories.find(c => c.id === id);
+  document.getElementById("catDetailTitle").textContent = cat ? cat.name : "";
+  renderCategoryDetail();
+  showViewRaw("category");
+}
+function showViewRaw(name){
+  document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+  document.getElementById("view-"+name).classList.add("active");
+}
+
+function renderCategoryDetail(){
+  const list = state.subliminals.filter(s => s.categoryId === state.currentCategoryId);
+  const container = document.getElementById("catDetailList");
+  container.innerHTML = "";
+  if(list.length === 0){
+    container.innerHTML = emptyStateHtml("Nenhum subliminal aqui ainda.", "Adicionar Subliminal", "document.getElementById('fileInput').click()");
+    return;
+  }
+  list.forEach((sub, idx) => container.appendChild(subliminalRow(sub, list, idx)));
+}
+
+/* =========================================================================
+   LIBRARY
+   ========================================================================= */
+function toggleSortMenu(){
+  const m = document.getElementById("sortMenu");
+  m.style.display = m.style.display === "none" ? "flex" : "none";
+}
+function setSort(option){
+  state.librarySort = option;
+  document.querySelectorAll("#sortMenu .chip").forEach(c => c.classList.toggle("active", c.dataset.sort === option));
+  renderLibrary();
+}
+function renderLibrary(){
+  const query = (document.getElementById("librarySearch").value || "").toLowerCase();
+  let list = state.subliminals.filter(s => s.title.toLowerCase().includes(query));
+  if(state.librarySort === "date") list = list.sort((a,b) => b.dateAdded - a.dateAdded);
+  if(state.librarySort === "name") list = list.sort((a,b) => a.title.localeCompare(b.title));
+  if(state.librarySort === "played") list = list.sort((a,b) => (b.playCount||0) - (a.playCount||0));
+
+  const container = document.getElementById("libraryList");
+  container.innerHTML = "";
+  if(list.length === 0){ container.innerHTML = emptyStateHtml(query ? "Nenhum resultado para essa busca." : "Sua biblioteca está vazia.", query ? null : "Adicionar Subliminal", "document.getElementById('fileInput').click()"); return; }
+  list.forEach((sub, idx) => container.appendChild(subliminalRow(sub, list, idx, true)));
+}
+
+/* =========================================================================
+   FAVORITES
+   ========================================================================= */
+function renderFavorites(){
+  const list = state.subliminals.filter(s => s.favorite);
+  const container = document.getElementById("favList");
+  container.innerHTML = "";
+  if(list.length === 0){ container.innerHTML = emptyStateHtml("Nenhum favorito ainda. Toque no coração de um subliminal para guardá-lo aqui."); return; }
+  list.forEach((sub, idx) => container.appendChild(subliminalRow(sub, list, idx)));
+}
+
+/* =========================================================================
+   PLAYLISTS
+   ========================================================================= */
+function renderPlaylists(){
+  const container = document.getElementById("playlistList");
+  container.innerHTML = "";
+  if(state.playlists.length === 0){
+    container.innerHTML = emptyStateHtml("Nenhuma playlist ainda.", "+ Nova playlist", "openNewPlaylistDialog()");
+    return;
+  }
+  state.playlists.forEach(pl => {
+    const count = state.playlistItems.filter(i => i.playlistId === pl.id).length;
+    const row = document.createElement("div");
+    row.className = "list-row";
+    row.onclick = () => openPlaylist(pl.id);
+    row.innerHTML = `<div class="cover">${ICONS.playlist}</div>
+      <div class="row-info"><div class="row-title">${escapeHtml(pl.name)}</div><div class="row-sub">${count} áudios</div></div>`;
+    container.appendChild(row);
+  });
+  const btn = document.createElement("button");
+  btn.className = "btn block"; btn.style.marginTop = "16px";
+  btn.textContent = "+ Nova playlist";
+  btn.onclick = openNewPlaylistDialog;
+  container.appendChild(btn);
+}
+
+function openPlaylist(id){
+  state.currentPlaylistId = id;
+  const pl = state.playlists.find(p => p.id === id);
+  document.getElementById("playlistDetailTitle").textContent = pl ? pl.name : "";
+  renderPlaylistDetail();
+  showViewRaw("playlistDetail");
+}
+function renderPlaylistDetail(){
+  const items = state.playlistItems.filter(i => i.playlistId === state.currentPlaylistId).sort((a,b)=>a.position-b.position);
+  const subs = items.map(i => state.subliminals.find(s => s.id === i.subliminalId)).filter(Boolean);
+  const container = document.getElementById("playlistDetailList");
+  container.innerHTML = "";
+  if(subs.length === 0){ container.innerHTML = emptyStateHtml("Esta playlist ainda não tem áudios. Abra a Biblioteca, toque em ⋮ num subliminal e escolha esta playlist."); return; }
+  subs.forEach((sub, idx) => container.appendChild(subliminalRow(sub, subs, idx, false, true)));
+}
+
+function openNewPlaylistDialog(){
+  showDialog(`
+    <h3>Nova playlist</h3>
+    <div class="field"><input type="text" id="dlgPlaylistName" placeholder="Nome da playlist"></div>
+    <div class="sheet-actions">
+      <button class="btn secondary" onclick="closeDialog()">Cancelar</button>
+      <button class="btn block" onclick="createPlaylist()">Criar</button>
+    </div>`);
+}
+async function createPlaylist(){
+  const name = document.getElementById("dlgPlaylistName").value.trim();
+  if(!name) return;
+  await dbPut("playlists", {name});
+  await refreshAll();
+  closeDialog();
+  renderPlaylists();
+}
+async function addToPlaylist(playlistId, subliminalId){
+  const existingItems = await dbGetByIndex("playlistItems", "playlistId", playlistId);
+  const position = existingItems.length;
+  await dbPut("playlistItems", {playlistId, subliminalId, position});
+  await refreshAll();
+}
+
+/* =========================================================================
+   STATS
+   ========================================================================= */
+function dayKey(d = new Date()){ return d.toISOString().slice(0,10); }
+
+async function recordListening(subliminalId, ms){
+  const key = dayKey();
+  const existingDay = await dbGet("listeningDays", key);
+  const totalToday = (existingDay ? existingDay.totalMs : 0) + ms;
+  await dbPut("listeningDays", {dayKey:key, totalMs: totalToday});
+
+  // Kept in its own store (see openDB) so this per-second write never has to
+  // read+rewrite the subliminal's audio blob.
+  const existingStat = await dbGet("subliminalStats", subliminalId);
+  const totalListenedMs = (existingStat ? existingStat.totalListenedMs : 0) + ms;
+  await dbPut("subliminalStats", {subliminalId, totalListenedMs});
+}
+
+async function renderStats(){
+  const days = await dbGetAll("listeningDays");
+  const map = {}; days.forEach(d => map[d.dayKey] = d.totalMs);
+  const today = map[dayKey()] || 0;
+  const total = days.reduce((a,d) => a + d.totalMs, 0);
+
+  let streak = 0; let cursor = new Date();
+  while(true){
+    const k = dayKey(cursor);
+    if(map[k]){ streak++; cursor.setDate(cursor.getDate()-1); } else break;
+  }
+
+  const subs = await dbGetAll("subliminals");
+  const stats = await dbGetAll("subliminalStats");
+  const listenedMsById = {};
+  stats.forEach(s => listenedMsById[s.subliminalId] = s.totalListenedMs);
+  const mostPlayed = subs.sort((a,b) => (listenedMsById[b.id]||0)-(listenedMsById[a.id]||0))[0];
+  const mostPlayedMs = mostPlayed ? (listenedMsById[mostPlayed.id]||0) : 0;
+
+  document.getElementById("statToday").textContent = formatLongDuration(today);
+  document.getElementById("statTotal").textContent = formatLongDuration(total);
+  document.getElementById("statStreak").textContent = `${streak} dia${streak===1?"":"s"}`;
+  document.getElementById("statMostPlayed").textContent = mostPlayedMs > 0 ? mostPlayed.title : "—";
+}
+function formatLongDuration(ms){
+  const totalMin = Math.floor(ms/60000);
+  const h = Math.floor(totalMin/60), m = totalMin%60;
+  return h>0 ? `${h}h ${m}min` : `${m}min`;
+}
+
+/* =========================================================================
+   SHARED ROW RENDERER
+   ========================================================================= */
+function subliminalRow(sub, list, idx, showLibraryMenu=false, inPlaylist=false){
+  const row = document.createElement("div");
+  row.className = "list-row";
+  const isCurrent = state.queue[state.queueIndex] && state.queue[state.queueIndex].id === sub.id;
+  row.innerHTML = `
+    <div class="cover">${sub.coverUrl ? `<img src="${sub.coverUrl}">` : ICONS.note}</div>
+    <div class="row-info">
+      <div class="row-title ${isCurrent?'playing':''}">${escapeHtml(sub.title)}</div>
+      <div class="row-sub">${formatDuration(sub.durationMs||0)}</div>
+    </div>
+    <button class="icon-btn fav-btn">${sub.favorite ? ICONS.heart : ICONS.heartOutline}</button>
+    <button class="icon-btn more-btn">${ICONS.more}</button>`;
+  row.querySelector(".row-info").onclick = () => playQueue(list, idx);
+  row.querySelector(".cover").onclick = () => playQueue(list, idx);
+  row.querySelector(".fav-btn").onclick = (e) => { e.stopPropagation(); toggleFavorite(sub.id); };
+  row.querySelector(".more-btn").onclick = (e) => { e.stopPropagation(); openRowMenu(sub, inPlaylist); };
+  return row;
+}
+function emptyStateHtml(text, ctaLabel, ctaOnclick){
+  const cta = ctaLabel ? `<button class="btn" onclick="${ctaOnclick}">${escapeHtml(ctaLabel)}</button>` : "";
+  return `<div class="empty-state">${ICONS.note}<p>${text}</p>${cta}</div>`;
+}
+
+async function toggleFavorite(id){
+  const sub = await dbGet("subliminals", id);
+  sub.favorite = !sub.favorite;
+  await dbPut("subliminals", sub);
+  await refreshAll();
+  rerenderCurrentView();
+}
+function rerenderCurrentView(){
+  const active = document.querySelector(".view.active").id.replace("view-","");
+  if(active === "home") renderHome();
+  if(active === "category") renderCategoryDetail();
+  if(active === "library") renderLibrary();
+  if(active === "favorites") renderFavorites();
+  if(active === "playlists") renderPlaylists();
+  if(active === "playlistDetail") renderPlaylistDetail();
+  updatePlayerFavIcon();
+}
+
+function openRowMenu(sub, inPlaylist){
+  const categoryOptions = state.categories.map(c => `<button class="chip" onclick="moveToCategory(${sub.id}, ${c.id})">${escapeHtml(c.name)}</button>`).join("");
+  const playlistOptions = state.playlists.map(p => `<button class="chip" onclick="addToPlaylist(${p.id}, ${sub.id}).then(()=>closeDialog())">${escapeHtml(p.name)}</button>`).join("");
+  showDialog(`
+    <h3>${escapeHtml(sub.title)}</h3>
+    <div class="field"><label>Renomear</label><input type="text" id="dlgRename" value="${escapeHtml(sub.title)}"></div>
+    <div class="field"><label>Mover para categoria</label><div class="chip-row">${categoryOptions}</div></div>
+    ${state.playlists.length ? `<div class="field"><label>Adicionar à playlist</label><div class="chip-row">${playlistOptions}</div></div>` : ""}
+    <div class="sheet-actions">
+      <button class="btn secondary" style="color:var(--danger);" onclick="deleteSubliminal(${sub.id})">Excluir</button>
+      <button class="btn block" onclick="renameSubliminal(${sub.id})">Salvar nome</button>
+    </div>
+    ${inPlaylist ? `<button class="btn secondary block" style="margin-top:10px;" onclick="removePlaylistItemFor(${sub.id})">Remover desta playlist</button>` : ""}
+  `);
+}
+async function moveToCategory(id, categoryId){
+  const sub = await dbGet("subliminals", id);
+  sub.categoryId = categoryId;
+  await dbPut("subliminals", sub);
+  await refreshAll();
+  closeDialog();
+  rerenderCurrentView();
+}
+async function renameSubliminal(id){
+  const val = document.getElementById("dlgRename").value.trim();
+  if(!val) return;
+  const sub = await dbGet("subliminals", id);
+  sub.title = val;
+  await dbPut("subliminals", sub);
+  await refreshAll();
+  closeDialog();
+  rerenderCurrentView();
+}
+async function deleteSubliminal(id){
+  await dbDelete("subliminals", id);
+  const orphanedItems = state.playlistItems.filter(i => i.subliminalId === id);
+  for(const item of orphanedItems) await dbDelete("playlistItems", item.id);
+  await refreshAll();
+  closeDialog();
+  rerenderCurrentView();
+}
+async function removePlaylistItemFor(subliminalId){
+  const items = state.playlistItems.filter(i => i.playlistId === state.currentPlaylistId && i.subliminalId === subliminalId);
+  for(const item of items) await dbDelete("playlistItems", item.id);
+  await refreshAll();
+  closeDialog();
+  renderPlaylistDetail();
+}
+
+/* =========================================================================
+   GENERIC DIALOG / SHEET HELPERS
+   ========================================================================= */
+function showDialog(html){
+  document.getElementById("dialogBox").innerHTML = html;
+  document.getElementById("dialogOverlay").classList.add("show");
+}
+function closeDialog(){ document.getElementById("dialogOverlay").classList.remove("show"); }
+
+function openNewCategoryDialog(){
+  showDialog(`
+    <h3>Nova categoria</h3>
+    <div class="field"><input type="text" id="dlgCategoryName" placeholder="Nome da categoria"></div>
+    <div class="sheet-actions">
+      <button class="btn secondary" onclick="closeDialog()">Cancelar</button>
+      <button class="btn block" onclick="createCategory()">Criar</button>
+    </div>`);
+}
+async function createCategory(returnIdCallback){
+  const name = document.getElementById("dlgCategoryName").value.trim();
+  if(!name) return;
+  const id = await dbPut("categories", {name, iconKey:"custom", isCustom:true, sortOrder: 100 + state.categories.length});
+  await refreshAll();
+  closeDialog();
+  renderHome();
+  if(typeof returnIdCallback === "function") returnIdCallback(id);
+  return id;
+}
+
+/* =========================================================================
+   IMPORT FLOW
+   ========================================================================= */
+document.getElementById("fileInput").addEventListener("change", (e) => {
+  const files = Array.from(e.target.files);
+  if(files.length === 0) return;
+  state.pendingImports = files;
+  state.pendingIndex = 0;
+  startImportStep();
+  e.target.value = "";
+});
+document.getElementById("coverInput").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if(!file) return;
+  state.pendingCoverBlob = file;
+  if(state.currentCoverPreviewUrl){ URL.revokeObjectURL(state.currentCoverPreviewUrl); }
+  const url = URL.createObjectURL(file);
+  state.currentCoverPreviewUrl = url;
+  document.getElementById("importCoverPreview").innerHTML = `<img src="${url}">`;
+  e.target.value = "";
+});
+
+function startImportStep(){
+  const file = state.pendingImports[state.pendingIndex];
+  if(!file){ document.getElementById("importOverlay").classList.remove("show"); return; }
+  state.pendingCoverBlob = null;
+  if(state.currentCoverPreviewUrl){ URL.revokeObjectURL(state.currentCoverPreviewUrl); state.currentCoverPreviewUrl = null; }
+  document.getElementById("importCoverPreview").innerHTML = ICONS.note;
+  document.getElementById("importCounter").textContent = `Importar subliminal (${state.pendingIndex+1}/${state.pendingImports.length})`;
+  document.getElementById("importName").value = file.name.replace(/\.[^/.]+$/, "");
+  const chipsWrap = document.getElementById("importCategoryChips");
+  chipsWrap.innerHTML = state.categories.map(c =>
+    `<button class="chip" data-cat="${c.id}" onclick="selectImportCategory(${c.id})">${escapeHtml(c.name)}</button>`
+  ).join("") + `<button class="chip" onclick="openNewCategoryDialog()">+ Nova</button>`;
+  state.importSelectedCategory = null;
+  document.getElementById("saveImportBtn").disabled = true;
+  document.getElementById("importOverlay").classList.add("show");
+}
+function selectImportCategory(id){
+  state.importSelectedCategory = id;
+  document.querySelectorAll("#importCategoryChips .chip").forEach(c => c.classList.toggle("active", Number(c.dataset.cat) === id));
+  document.getElementById("saveImportBtn").disabled = false;
+}
+function skipImport(){
+  state.pendingIndex++;
+  startImportStep();
+}
+async function saveCurrentImport(){
+  const file = state.pendingImports[state.pendingIndex];
+  const name = document.getElementById("importName").value.trim() || file.name;
+  const categoryId = state.importSelectedCategory;
+  if(!categoryId) return;
+
+  const saveBtn = document.getElementById("saveImportBtn");
+  const originalLabel = saveBtn.textContent;
+  let finalBlob = file;
+  let durationMs = 0;
+
+  if(isVideoFile(file)){
+    saveBtn.disabled = true;
+    saveBtn.textContent = "Convertendo vídeo em áudio...";
+    try{
+      const converted = await convertVideoToAudioBlob(file);
+      finalBlob = converted.blob;
+      durationMs = converted.durationMs;
+    } catch(err){
+      console.warn("Falha ao converter vídeo em áudio, o vídeo será salvo e apenas o som será reproduzido.", err);
+      finalBlob = file;
+      durationMs = await getAudioDuration(file);
+      alert("Não foi possível extrair o áudio deste vídeo automaticamente. O arquivo será salvo como está — o player vai reproduzir apenas o som, mas o vídeo continuará ocupando o espaço original.");
+    }
+    saveBtn.textContent = originalLabel;
+  } else {
+    durationMs = await getAudioDuration(file);
+  }
+
+  let coverUrl = null;
+  if(state.pendingCoverBlob){ coverUrl = await blobToDataUrl(state.pendingCoverBlob); }
+
+  try{
+    await dbPut("subliminals", {
+      title:name, categoryId, blob:finalBlob, coverUrl, durationMs,
+      favorite:false, dateAdded:Date.now(), playCount:0
+    });
+  } catch(err){
+    console.error("Falha ao salvar subliminal:", err);
+    saveBtn.disabled = false;
+    saveBtn.textContent = originalLabel;
+    alert(err && err.name === "QuotaExceededError"
+      ? "Não foi possível salvar: o armazenamento do aparelho está cheio."
+      : "Não foi possível salvar este subliminal. Tente novamente.");
+    return;
+  }
+  await refreshAll();
+  rerenderCurrentView();
+  saveBtn.disabled = false;
+  state.pendingIndex++;
+  startImportStep();
+}
+
+/* ---- Real video -> audio conversion, fully offline via Web Audio API ---- */
+function isVideoFile(file){
+  if(file.type && file.type.startsWith("video/")) return true;
+  return /\.(mp4|mov|mkv|webm|avi|m4v|3gp)$/i.test(file.name);
+}
+
+async function convertVideoToAudioBlob(file){
+  const arrayBuffer = await file.arrayBuffer();
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  const ctx = new AudioCtx();
+  let audioBuffer;
+  try{
+    audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+  } finally {
+    ctx.close();
+  }
+  const blob = audioBufferToWavBlob(audioBuffer);
+  return { blob, durationMs: Math.round(audioBuffer.duration * 1000) };
+}
+
+function audioBufferToWavBlob(buffer){
+  const numChannels = Math.min(buffer.numberOfChannels, 2);
+  const sampleRate = buffer.sampleRate;
+  let samples;
+  if(numChannels === 2){
+    samples = interleaveChannels(buffer.getChannelData(0), buffer.getChannelData(1));
+  } else {
+    samples = buffer.getChannelData(0);
+  }
+  return encodeWav(samples, numChannels, sampleRate);
+}
+function interleaveChannels(left, right){
+  const length = left.length + right.length;
+  const result = new Float32Array(length);
+  let index = 0, inputIndex = 0;
+  while(index < length){
+    result[index++] = left[inputIndex];
+    result[index++] = right[inputIndex];
+    inputIndex++;
+  }
+  return result;
+}
+function encodeWav(samples, numChannels, sampleRate){
+  const bytesPerSample = 2; // 16-bit PCM
+  const blockAlign = numChannels * bytesPerSample;
+  const buffer = new ArrayBuffer(44 + samples.length * bytesPerSample);
+  const view = new DataView(buffer);
+  writeAscii(view, 0, "RIFF");
+  view.setUint32(4, 36 + samples.length * bytesPerSample, true);
+  writeAscii(view, 8, "WAVE");
+  writeAscii(view, 12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true); // PCM format
+  view.setUint16(22, numChannels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * blockAlign, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, 16, true); // bit depth
+  writeAscii(view, 36, "data");
+  view.setUint32(40, samples.length * bytesPerSample, true);
+  floatTo16BitPCM(view, 44, samples);
+  return new Blob([view], {type:"audio/wav"});
+}
+function floatTo16BitPCM(output, offset, input){
+  for(let i=0; i<input.length; i++, offset+=2){
+    const s = Math.max(-1, Math.min(1, input[i]));
+    output.setInt16(offset, s < 0 ? s*0x8000 : s*0x7FFF, true);
+  }
+}
+function writeAscii(view, offset, str){
+  for(let i=0; i<str.length; i++) view.setUint8(offset+i, str.charCodeAt(i));
+}
+
+function getAudioDuration(file){
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const a = new Audio();
+    a.preload = "metadata";
+    a.onloadedmetadata = () => { resolve(Math.round(a.duration*1000) || 0); URL.revokeObjectURL(url); };
+    a.onerror = () => { resolve(0); URL.revokeObjectURL(url); };
+    a.src = url;
+  });
+}
+function blobToDataUrl(blob){
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.readAsDataURL(blob);
+  });
+}
+
+/* =========================================================================
+   PLAYER
+   ========================================================================= */
+function playQueue(list, startIndex){
+  state.queue = list;
+  state.queueIndex = startIndex;
+  loadCurrentTrack();
+  openPlayer();
+}
+async function loadCurrentTrack(){
+  const sub = state.queue[state.queueIndex];
+  if(!sub) return;
+  if(state.currentAudioUrl){ URL.revokeObjectURL(state.currentAudioUrl); }
+  const url = URL.createObjectURL(sub.blob);
+  state.currentAudioUrl = url;
+  audioEl.src = url;
+  audioEl.playbackRate = state.speed;
+  try{ await audioEl.play(); state.isPlaying = true; } catch(e){ state.isPlaying = false; }
+
+  const cat = state.categories.find(c => c.id === sub.categoryId);
+  document.getElementById("playerTitle").textContent = sub.title;
+  document.getElementById("playerCat").textContent = cat ? cat.name : "";
+  document.getElementById("miniTitle").textContent = sub.title;
+  document.getElementById("miniCover").innerHTML = sub.coverUrl ? `<img src="${sub.coverUrl}">` : ICONS.note;
+  document.getElementById("miniPlayer").classList.add("show");
+  updatePlayIcons();
+  updatePlayerFavIcon();
+  bumpPlayCount(sub.id);
+  setupMediaSession(sub, cat);
+  rerenderCurrentView();
+}
+async function bumpPlayCount(id){
+  const sub = await dbGet("subliminals", id);
+  sub.playCount = (sub.playCount||0)+1;
+  await dbPut("subliminals", sub);
+}
+
+function togglePlay(){
+  if(!audioEl.src) return;
+  if(audioEl.paused){ audioEl.play(); state.isPlaying = true; } else { audioEl.pause(); state.isPlaying = false; }
+  updatePlayIcons();
+}
+function updatePlayIcons(){
+  const icon = state.isPlaying ? ICONS.pause : ICONS.play;
+  document.getElementById("playBtnBig").innerHTML = icon;
+  document.getElementById("miniPlayBtn").innerHTML = icon;
+}
+function next(){
+  if(state.queue.length === 0) return;
+  if(state.shuffle){
+    state.queueIndex = Math.floor(Math.random()*state.queue.length);
+  } else if(state.queueIndex < state.queue.length - 1){
+    state.queueIndex++;
+  } else if(state.repeatMode === "all"){
+    state.queueIndex = 0;
+  } else { return; }
+  loadCurrentTrack();
+}
+function prev(){
+  if(state.queue.length === 0) return;
+  if(state.queueIndex > 0) state.queueIndex--;
+  loadCurrentTrack();
+}
+audioEl.addEventListener("ended", () => {
+  if(state.repeatMode === "one"){ audioEl.currentTime = 0; audioEl.play(); return; }
+  next();
+});
+audioEl.addEventListener("timeupdate", () => {
+  const cur = audioEl.currentTime*1000, dur = (audioEl.duration||0)*1000;
+  document.getElementById("seekSlider").value = dur>0 ? (cur/dur*1000) : 0;
+  document.getElementById("timeCurrent").textContent = formatDuration(cur);
+  document.getElementById("timeTotal").textContent = formatDuration(dur);
+  document.getElementById("miniProgressFill").style.width = dur>0 ? `${cur/dur*100}%` : "0%";
+});
+document.getElementById("seekSlider").addEventListener("input", (e) => {
+  const dur = audioEl.duration||0;
+  audioEl.currentTime = (e.target.value/1000)*dur;
+});
+
+function cycleSpeed(){
+  const speeds = [0.75, 1, 1.25, 1.5, 1.75, 2];
+  const i = speeds.indexOf(state.speed);
+  state.speed = speeds[(i+1) % speeds.length];
+  audioEl.playbackRate = state.speed;
+  document.getElementById("speedChip").textContent = state.speed + "x";
+}
+const ICONS_repeatOne = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg><span style="position:absolute; font-size:9px; font-weight:800; top:2px; right:2px;">1</span>`;
+function cycleRepeat(){
+  state.repeatMode = state.repeatMode === "off" ? "all" : state.repeatMode === "all" ? "one" : "off";
+  const btn = document.getElementById("repeatBtn");
+  btn.style.position = "relative";
+  btn.innerHTML = state.repeatMode === "one" ? ICONS_repeatOne : ICONS.repeat;
+  btn.classList.toggle("toggle-active", state.repeatMode !== "off");
+}
+function toggleShuffle(){
+  state.shuffle = !state.shuffle;
+  document.getElementById("shuffleBtn").classList.toggle("toggle-active", state.shuffle);
+}
+function openSleepMenu(){
+  showDialog(`
+    <h3>Temporizador para desligar</h3>
+    <div class="chip-row" style="flex-wrap:wrap;">
+      ${[5,10,15,30,45,60].map(m => `<button class="chip" onclick="setSleepTimer(${m})">${m} min</button>`).join("")}
+      <button class="chip" onclick="cancelSleepTimer()">Cancelar</button>
+    </div>`);
+}
+function setSleepTimer(minutes){
+  if(state.sleepTimeout) clearTimeout(state.sleepTimeout);
+  document.getElementById("sleepChip").textContent = `${minutes}min`;
+  state.sleepTimeout = setTimeout(() => {
+    audioEl.pause(); state.isPlaying = false; updatePlayIcons();
+    document.getElementById("sleepChip").textContent = "Temporizador";
+  }, minutes*60000);
+  closeDialog();
+}
+function cancelSleepTimer(){
+  if(state.sleepTimeout) clearTimeout(state.sleepTimeout);
+  document.getElementById("sleepChip").textContent = "Temporizador";
+  closeDialog();
+}
+async function toggleFavoriteCurrent(){
+  const sub = state.queue[state.queueIndex];
+  if(!sub) return;
+  await toggleFavorite(sub.id);
+}
+function updatePlayerFavIcon(){
+  const sub = state.queue[state.queueIndex];
+  const chip = document.getElementById("favChip");
+  if(!sub){ chip.innerHTML = `${ICONS.heartOutline} Favorito`; return; }
+  chip.innerHTML = sub.favorite ? `${ICONS.heart} Favorito` : `${ICONS.heartOutline} Favorito`;
+  chip.classList.toggle("active", !!sub.favorite);
+}
+
+function openPlayer(){ document.getElementById("playerView").classList.add("show"); }
+function closePlayer(){ document.getElementById("playerView").classList.remove("show"); }
+
+/* Media Session API — gives lock-screen / notification-style controls where the browser supports it */
+function setupMediaSession(sub, cat){
+  if(!("mediaSession" in navigator)) return;
+  navigator.mediaSession.metadata = new MediaMetadata({
+    title: sub.title, artist: cat ? cat.name : "Lumora", album: "Lumora"
+  });
+  navigator.mediaSession.setActionHandler("play", () => togglePlay());
+  navigator.mediaSession.setActionHandler("pause", () => togglePlay());
+  navigator.mediaSession.setActionHandler("previoustrack", () => prev());
+  navigator.mediaSession.setActionHandler("nexttrack", () => next());
+}
+
+/* listening-time ticker: records 1s of listened time per second while actually playing */
+setInterval(() => {
+  const sub = state.queue[state.queueIndex];
+  if(sub && !audioEl.paused){
+    recordListening(sub.id, 1000).catch(err => console.error("Falha ao salvar progresso de escuta:", err));
+  }
+}, 1000);
+
+/* =========================================================================
+   THEME
+   ========================================================================= */
+function setTheme(mode){ applyTheme(mode); localStorage.setItem("theme", mode); }
+function applyTheme(mode){
+  document.documentElement.setAttribute("data-theme", mode);
+  document.getElementById("themeDarkBtn").classList.toggle("active", mode==="dark");
+  document.getElementById("themeLightBtn").classList.toggle("active", mode==="light");
+}
+
+/* =========================================================================
+   BACKUP / RESTORE (exported as a downloadable .json with base64 audio)
+   ========================================================================= */
+async function exportBackup(evt){
+  const btn = evt && evt.currentTarget ? evt.currentTarget : null;
+  const originalLabel = btn ? btn.innerHTML : null;
+  if(btn){ btn.disabled = true; btn.innerHTML = "Preparando backup..."; }
+
+  try{
+    const categories = await dbGetAll("categories");
+    const playlists = await dbGetAll("playlists");
+    const playlistItems = await dbGetAll("playlistItems");
+    const listeningDays = await dbGetAll("listeningDays");
+    const subliminalStats = await dbGetAll("subliminalStats");
+    const subsRaw = await dbGetAll("subliminals");
+
+    const subs = [];
+    for(const s of subsRaw){
+      const base64 = await blobToDataUrl(s.blob);
+      subs.push({...s, blob:undefined, audioDataUrl:base64});
+    }
+
+    const payload = {version:2, exportedAt:Date.now(), categories, playlists, playlistItems, listeningDays, subliminalStats, subliminals:subs};
+    const blob = new Blob([JSON.stringify(payload)], {type:"application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `lumora_backup_${dayKey()}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+
+    localStorage.setItem("lastBackupAt", String(Date.now()));
+    updateLastBackupNote();
+  } finally {
+    if(btn){ btn.disabled = false; btn.innerHTML = originalLabel; }
+  }
+}
+
+function updateLastBackupNote(){
+  const el = document.getElementById("lastBackupNote");
+  if(!el) return;
+  const ts = localStorage.getItem("lastBackupAt");
+  if(!ts){
+    el.textContent = "Você ainda não fez nenhum backup. Os dados ficam só neste aparelho — recomendamos fazer um agora.";
+    el.style.color = "var(--danger)";
+    return;
+  }
+  const date = new Date(Number(ts));
+  const daysSince = Math.floor((Date.now() - Number(ts)) / 86400000);
+  el.textContent = `Último backup: ${date.toLocaleDateString("pt-BR")} às ${date.toLocaleTimeString("pt-BR", {hour:"2-digit", minute:"2-digit"})}`
+    + (daysSince >= 7 ? ` (há ${daysSince} dias — considere fazer um novo)` : "");
+  el.style.color = daysSince >= 7 ? "var(--danger)" : "";
+}
+
+document.getElementById("restoreInput").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if(!file) return;
+  const text = await file.text();
+  const payload = JSON.parse(text);
+
+  for(const c of payload.categories||[]) await dbPut("categories", stripId(c));
+  for(const p of payload.playlists||[]) await dbPut("playlists", stripId(p));
+  for(const pi of payload.playlistItems||[]) await dbPut("playlistItems", stripId(pi));
+  for(const d of payload.listeningDays||[]) await dbPut("listeningDays", d);
+
+  const listenedMsByOldSubliminalId = {};
+  for(const s of payload.subliminalStats||[]) listenedMsByOldSubliminalId[s.subliminalId] = s.totalListenedMs;
+
+  for(const s of payload.subliminals||[]){
+    const oldId = s.id;
+    const blob = await (await fetch(s.audioDataUrl)).blob();
+    const clean = {...s}; delete clean.audioDataUrl; delete clean.id;
+    clean.blob = blob;
+    const newId = await dbPut("subliminals", clean);
+    // Subliminals get a fresh autoIncrement id on restore, so stats keyed by
+    // the old id must be re-linked to whatever id they actually land on.
+    if(listenedMsByOldSubliminalId[oldId] !== undefined){
+      await dbPut("subliminalStats", {subliminalId: newId, totalListenedMs: listenedMsByOldSubliminalId[oldId]});
+    }
+  }
+  await refreshAll();
+  rerenderCurrentView();
+  alert("Biblioteca importada com sucesso.");
+  e.target.value = "";
+});
+function stripId(obj){ const c = {...obj}; delete c.id; return c; }
+
+/* =========================================================================
+   UTILS
+   ========================================================================= */
+function formatDuration(ms){
+  const totalSeconds = Math.floor(ms/1000);
+  const m = Math.floor(totalSeconds/60), s = totalSeconds%60;
+  return `${m}:${String(s).padStart(2,"0")}`;
+}
+function escapeHtml(str){
+  return String(str).replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+function wireEvents(){
+  document.getElementById("dialogOverlay").addEventListener("click", (e) => { if(e.target.id === "dialogOverlay") closeDialog(); });
+  document.getElementById("importOverlay").addEventListener("click", (e) => { if(e.target.id === "importOverlay"){ /* keep open until done/skip */ } });
+}
+
+boot();
+
+/* Registers the service worker so the browser can offer "Adicionar à tela inicial".
+   Only works when served over http(s)/localhost — silently does nothing if opened
+   directly as a local file, which is expected and harmless. */
+if("serviceWorker" in navigator){
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(() => { /* not servable from file://, ignore */ });
+  });
+}
+</script>
+</body>
+</html>
